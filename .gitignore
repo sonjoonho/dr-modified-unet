@@ -1,0 +1,9 @@
+# PyCharm configuration files.
+/.idea/
+
+# Python virtual environment.
+/venv/
+
+# Datasets should not be committed to version control.
+/data/
+!/data/README.md
