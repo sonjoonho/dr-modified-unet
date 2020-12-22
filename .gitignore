@@ -5,5 +5,5 @@
 /venv/
 
 # Datasets should not be committed to version control.
-/data/
-!/data/README.md
+/data/raw
+/data/processed
