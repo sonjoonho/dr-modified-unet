@@ -4,6 +4,9 @@
 # Python virtual environment.
 /venv/
 
+__pycache__/
+.ipynb_checkpoints/
+
 # Datasets should not be committed to version control.
 /data/raw
 /data/processed
