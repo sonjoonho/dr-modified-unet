@@ -10,3 +10,5 @@ __pycache__/
 # Datasets should not be committed to version control.
 /data/raw
 /data/processed
+
+/output
