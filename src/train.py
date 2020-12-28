@@ -7,14 +7,14 @@ import tensorflow as tf
 
 import segmentation_models as sm
 
-from unet.data.dataset import make_dataset
-from unet.models.modified_unet import modified_unet_model
-from unet.visualization.plot import save_predictions
+from data.dataset import make_dataset
+from models.modified_unet import modified_unet_model
+from visualization.plot import save_predictions
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--output_dir", default="output", help="Output directory")
+parser.add_argument("--output_dir", default="../output", help="Output directory")
 parser.add_argument(
-    "--data_dir", default="data/processed", help="Directory containing input data"
+    "--data_dir", default="../data/processed", help="Directory containing input data"
 )
 parser.add_argument("--batch_size", default=2, help="Batch size")
 parser.add_argument("--epochs", default=10, help="Number of epochs to train for")

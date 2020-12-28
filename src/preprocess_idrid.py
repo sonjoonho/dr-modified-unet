@@ -15,18 +15,18 @@ from typing import List
 from PIL import Image
 from tqdm import tqdm
 
-from unet.data import image
-from unet.data.files import filepaths, MaskPaths
+from data import image
+from data.files import filepaths, MaskPaths
 
 IMAGE_SIZE = 512
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--idrid_dir", default="data/raw/IDRiD", help="Directory with the IDRiD dataset"
+    "--idrid_dir", default="../data/raw/IDRiD", help="Directory with the IDRiD dataset"
 )
 parser.add_argument(
     "--output_dir",
-    default="data/processed",
+    default="../data/processed",
     help="Directory to write processed data to",
 )
 

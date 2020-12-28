@@ -5,7 +5,7 @@ from typing import Tuple
 
 import tensorflow as tf
 
-from unet.data.files import filepaths, MaskPaths
+from data.files import filepaths, MaskPaths
 
 
 def load_image(image_path: str, mask_path: str) -> Tuple[tf.Tensor, tf.Tensor]:
