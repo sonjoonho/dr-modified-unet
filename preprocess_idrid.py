@@ -15,24 +15,29 @@ from typing import List
 from PIL import Image
 from tqdm import tqdm
 
+from unet.data import image
 from unet.data.files import filepaths, MaskPaths
 
-# Threshold used in mask binarisation. All values smaller than the threshold will be
-# set to 0 (black), all other values to 255 (white).
-from unet.data.image import binarise_image, pad_image, crop_image
+IMAGE_SIZE = 512
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--idrid_dir",
-    default="../../data/raw/IDRiD",
-    help="Directory with the IDRiD dataset",
+    "--idrid_dir", default="data/raw/IDRiD", help="Directory with the IDRiD dataset"
 )
-
 parser.add_argument(
     "--output_dir",
-    default="../../data/processed",
+    default="data/processed",
     help="Directory to write processed data to",
 )
+
+
+def transform_and_save(img: Image.Image, output_path: Path) -> Image.Image:
+    img = image.pad(img)
+    img = image.center_crop(img, 3600)
+    img = image.resize(img, IMAGE_SIZE)
+
+    img.save(output_path, "JPEG", quality=100, subsampling=0)
+    return img
 
 
 def _preprocess_class_masks(paths: List[Path], output_dir: Path, progress_bar: tqdm):
@@ -48,10 +53,8 @@ def _preprocess_class_masks(paths: List[Path], output_dir: Path, progress_bar: t
 
         img: Image.Image = Image.open(input_path)
 
-        img = binarise_image(img)
-        img = pad_image(img)
-
-        img.save(output_path, "JPEG", quality=100)
+        img = image.binarise(img)
+        transform_and_save(img, output_path)
         img.close()
 
         progress_bar.update()
@@ -81,9 +84,7 @@ def preprocess_images(train_image_paths: List[Path], output_dir: Path):
         output_path = output_dir / output_filename
 
         img: Image.Image = Image.open(input_path)
-        # img = crop_image(img)
-        img = pad_image(img)
-        img.save(output_path, "JPEG", quality=100)
+        transform_and_save(img, output_path)
         img.close()
 
 

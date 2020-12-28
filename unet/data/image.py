@@ -1,40 +1,44 @@
 from PIL import Image
 
+# Threshold used in mask binarisation. All values smaller than the threshold will be
+# set to 0 (black), all other values to 255 (white).
 BINARY_THRESHOLD = 1
 
 
-def binarise_image(img: Image.Image):
+def binarise(img: Image.Image) -> Image.Image:
     # Binarise image.
     img = img.convert("L")
     img = img.point(lambda x: 0 if x < BINARY_THRESHOLD else 255, "1")
     return img
 
 
-def pad_image(img: Image.Image) -> Image.Image:
-    desired_size = 128
-    old_size = img.size  # old_size[0] is in (width, height) format
+def pad(img: Image.Image) -> Image.Image:
+    """Pad to square with original image in center."""
+    width, height = img.size
 
-    ratio = float(desired_size) / max(old_size)
-    new_size = tuple([int(x * ratio) for x in old_size])
+    new_size = max(width, height)
 
-    img = img.resize(new_size, Image.ANTIALIAS)
-
-    new_im = Image.new("RGB", (desired_size, desired_size))
-    new_im.paste(
-        img, ((desired_size - new_size[0]) // 2, (desired_size - new_size[1]) // 2)
-    )
+    new_im = Image.new("RGB", (new_size, new_size))
+    region = ((new_size - width) // 2, (new_size - height) // 2)
+    new_im.paste(img, region)
+    img.close()
     return new_im
 
 
-def crop_image(img: Image.Image) -> Image.Image:
+def center_crop(img: Image.Image, size: int) -> Image.Image:
     width, height = img.size
-    new_width = 2048
-    new_height = 2048
-    left = (width - new_width) / 2
-    top = (height - new_height) / 2
-    right = (width + new_width) / 2
-    bottom = (height + new_height) / 2
+    left = (width - size) // 2
+    top = (height - size) // 2
+    right = (width + size) // 2
+    bottom = (height + size) // 2
 
     # Crop the center of the image
-    img = img.crop((left, top, right, bottom))
-    return img
+    new_img = img.crop((left, top, right, bottom))
+    img.close()
+    return new_img
+
+
+def resize(img: Image.Image, size: int) -> Image.Image:
+    new_img = img.resize((size, size), resample=Image.ANTIALIAS)
+    img.close()
+    return new_img

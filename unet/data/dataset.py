@@ -11,13 +11,42 @@ from unet.data.files import filepaths, MaskPaths
 def load_image(image_path: str, mask_path: str) -> Tuple[tf.Tensor, tf.Tensor]:
     """Obtains the image data from the path."""
     image_string: tf.Tensor = tf.io.read_file(image_path)
-    image = tf.image.decode_image(image_string, channels=3, dtype=tf.float16)
+    # Don't use tf.image.decode_image, or the output shape will be undefined
+    image = tf.io.decode_jpeg(image_string, channels=3)
+    # This will convert to float values in [0, 1]
+    image = tf.image.convert_image_dtype(image, tf.float32)
 
     mask_string: tf.Tensor = tf.io.read_file(mask_path)
-    mask = tf.image.decode_image(mask_string, channels=1, dtype=tf.float16)
+    mask = tf.io.decode_jpeg(mask_string, channels=1)
+    mask = tf.image.convert_image_dtype(mask, tf.float32)
 
-    image.set_shape([128, 128, 3])
-    mask.set_shape([128, 128, 1])
+    return image, mask
+
+
+def perform_flips(image: tf.Tensor, flip_lr: bool, flip_ud: bool) -> tf.Tensor:
+    image = tf.cond(flip_lr, lambda: tf.image.flip_left_right(image), lambda: image)
+    image = tf.cond(flip_ud, lambda: tf.image.flip_up_down(image), lambda: image)
+    return image
+
+
+def train_preprocess(image: tf.Tensor, mask: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
+    # Random numbers to determine if distortions are applied.
+    distortions = tf.random.uniform([2], 0, 1.0)
+
+    flip_lr = distortions[0] > 0.5
+    flip_ud = distortions[1] > 0.5
+
+    image = perform_flips(image, flip_lr, flip_ud)
+
+    # We apply colour transformations to the image only.
+    image = tf.image.random_brightness(image, max_delta=32.0 / 255.0)
+    image = tf.image.random_saturation(image, lower=0.5, upper=1.5)
+
+    # Make sure the image is still in [0, 1]
+    image = tf.clip_by_value(image, 0.0, 1.0)
+
+    mask = perform_flips(mask, flip_lr, flip_ud)
+    mask = tf.cast(mask > 0.5, tf.float32)
 
     return image, mask
 
@@ -41,7 +70,9 @@ def mask_filepaths(masks_dir: Path) -> MaskPaths:
     )
 
 
-def make_dataset(data_dir: Path, batch_size) -> Tuple[tf.data.Dataset, tf.data.Dataset]:
+def make_dataset(
+    data_dir: Path, batch_size: int
+) -> Tuple[tf.data.Dataset, tf.data.Dataset]:
     """Returns the training and testing datasets."""
 
     assert data_dir.is_dir(), f"Directory {data_dir} does not exist"
@@ -59,22 +90,27 @@ def make_dataset(data_dir: Path, batch_size) -> Tuple[tf.data.Dataset, tf.data.D
     train_image_paths = filepaths(train_image_dir)
     test_image_paths = filepaths(test_image_dir)
 
+    train_length: int = len(train_image_paths)
+
     # Convert paths to strings.
-    train_masks_od = [str(f) for f in train_mask_paths.od]
-    test_masks_od = [str(f) for f in test_mask_paths.od]
+    train_masks = [str(f) for f in train_mask_paths.od]
+    test_masks = [str(f) for f in test_mask_paths.od]
 
     train_images = [str(f) for f in train_image_paths]
     test_images = [str(f) for f in test_image_paths]
 
-    # Creating the training and test datasets.
-    train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_masks_od))
-    train_ds = train_ds.shuffle(len(train_image_paths))
-    train_ds = train_ds.map(load_image)
-    train_ds = train_ds.repeat()
-    train_ds = train_ds.batch(batch_size)
-    train_ds = train_ds.prefetch(1)
+    AUTOTUNE: int = tf.data.experimental.AUTOTUNE
 
-    test_ds = tf.data.Dataset.from_tensor_slices((test_images, test_masks_od))
-    test_ds = test_ds.map(load_image)
+    # Creating the training and test datasets.
+    train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_masks))
+    train_ds = train_ds.shuffle(train_length, reshuffle_each_iteration=True)
+    train_ds = train_ds.map(load_image, num_parallel_calls=AUTOTUNE)
+    train_ds = train_ds.map(train_preprocess, num_parallel_calls=AUTOTUNE)
+    train_ds = train_ds.batch(batch_size)
+    train_ds = train_ds.prefetch(AUTOTUNE)
+
+    test_ds = tf.data.Dataset.from_tensor_slices((test_images, test_masks))
+    test_ds = test_ds.map(load_image, num_parallel_calls=AUTOTUNE)
+    test_ds = test_ds.batch(batch_size)
 
     return train_ds, test_ds
